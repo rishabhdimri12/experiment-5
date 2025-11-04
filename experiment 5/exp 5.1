@@ -1,0 +1,126 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const app = express();
+const PORT = 3000;
+app.use(cors());
+app.use(express.json());
+mongoose.connect('mongodb://localhost:27017/productdb', {
+useNewUrlParser: true,
+useUnifiedTopology: true
+})
+.then(() => console.log('Connected to MongoDB'))
+.catch(err => console.error('MongoDB connection error:', err));
+const productSchema = new mongoose.Schema({
+name: {
+type: String,
+required: true,
+trim: true
+},
+price: {
+type: Number,
+required: true,
+min: 0
+},
+category: {
+type: String,
+required: true,
+trim: true
+}
+}, {
+timestamps: true
+});
+const Product = mongoose.model('Product', productSchema);
+app.get('/products', async (req, res) => {
+try {
+const products = await Product.find();
+res.status(200).json(products);
+} catch (error) {
+res.status(500).json({ 
+message: 'Error fetching products', 
+error: error.message 
+});
+}
+});
+app.get('/products/:id', async (req, res) => {
+try {
+const product = await Product.findById(req.params.id);
+if (!product) {
+return res.status(404).json({ message: 'Product not found' });
+}
+res.status(200).json(product);
+} catch (error) {
+if (error.kind === 'ObjectId') {
+return res.status(400).json({ message: 'Invalid product ID' });
+}
+res.status(500).json({ 
+message: 'Error fetching product', 
+error: error.message 
+});
+}
+});
+app.post('/products', async (req, res) => {
+try {
+const { name, price, category } = req.body;
+if (!name || !price || !category) {
+return res.status(400).json({ 
+message: 'Name, price, and category are required' 
+});
+}
+const product = new Product({ name, price, category });
+const savedProduct = await product.save();
+res.status(201).json(savedProduct);
+} catch (error) {
+res.status(500).json({ 
+message: 'Error creating product', 
+error: error.message 
+});
+}
+});
+app.put('/products/:id', async (req, res) => {
+try {
+const updatedProduct = await Product.findByIdAndUpdate(
+req.params.id,
+req.body,
+{ new: true, runValidators: true }
+);
+if (!updatedProduct) {
+return res.status(404).json({ message: 'Product not found' });
+}
+res.status(200).json({
+message: 'Product updated successfully',
+product: updatedProduct
+});
+} catch (error) {
+if (error.kind === 'ObjectId') {
+return res.status(400).json({ message: 'Invalid product ID' });
+}
+res.status(500).json({ 
+message: 'Error updating product', 
+error: error.message 
+});
+}
+});
+app.delete('/products/:id', async (req, res) => {
+try {
+const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+if (!deletedProduct) {
+return res.status(404).json({ message: 'Product not found' });
+}
+res.status(200).json({
+message: 'Product deleted',
+product: deletedProduct
+});
+} catch (error) {
+if (error.kind === 'ObjectId') {
+return res.status(400).json({ message: 'Invalid product ID' });
+}
+res.status(500).json({ 
+message: 'Error deleting product', 
+error: error.message 
+});
+}
+});
+app.listen(PORT, () => {
+console.log(`Server running on http://localhost:${PORT}`);
+});
